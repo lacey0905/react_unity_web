@@ -4,21 +4,20 @@ import styles from './App.module.scss';
 
 import { Unity, useUnityContext } from 'react-unity-webgl';
 
-import { CharacterChoice } from './components/CharacterChoice';
-
 const cx = classNames.bind(styles);
 
 export function App() {
   const [currentModel, setCurrentModel] = useState(0);
 
   const [gameStart, setGameStart] = useState(false);
+  const [gameEnd, setGameEnd] = useState(false);
 
   const { unityProvider, sendMessage, addEventListener, removeEventListener } =
     useUnityContext({
       loaderUrl: 'Build/build.loader.js',
-      dataUrl: 'Build/build.data.gz',
-      frameworkUrl: 'Build/build.framework.js.gz',
-      codeUrl: 'Build/build.wasm.gz',
+      dataUrl: 'Build/build.data',
+      frameworkUrl: 'Build/build.framework.js',
+      codeUrl: 'Build/build.wasm',
     });
 
   function GameStart() {
@@ -26,26 +25,38 @@ export function App() {
     sendMessage('GameManager', 'GameStart', currentModel);
   }
 
-  const [gameOver, setGameOver] = useState(false);
-
-  const handleGameOver = useCallback((gameOver: boolean) => {
-    // setIsGameOver(true);
-    // setUserName(userName);
-    // setScore(score);
-    setGameOver(gameOver);
+  const handleGameOver = useCallback(() => {
+    setGameStart(false);
+    setGameEnd(true);
   }, []);
 
   useEffect(() => {
-    addEventListener('GameOver', handleGameOver);
+    addEventListener('CallReact', handleGameOver);
     return () => {
-      removeEventListener('GameOver', handleGameOver);
+      removeEventListener('CallReact', handleGameOver);
     };
   }, [addEventListener, removeEventListener, handleGameOver]);
 
   return (
-    <div className={cx('container')} data-temp={gameOver}>
-      {!gameStart && (
+    <div className={cx('container')}>
+      {gameEnd && (
+        <div className={cx('gameEnd')}>
+          <h2 className={cx('title')}>당신의 승리 입니다!</h2>
+          <button
+            className={cx('reGameButton')}
+            onClick={() => {
+              setGameEnd(false);
+              setGameStart(false);
+            }}
+          >
+            게임 다시하기
+          </button>
+        </div>
+      )}
+      {!gameStart && !gameEnd && (
         <div className={cx('character')} data-on={currentModel}>
+          <h2 className={cx('title')}>지금은 React 입니다.</h2>
+          <p className={cx('subTitle')}>탱크를 선택 하세요.</p>
           <div
             className={cx('tank')}
             data-tank="0"
@@ -78,6 +89,16 @@ export function App() {
         </div>
       )}
       <div className={cx('gameView')}>
+        {gameStart && <h2 className={cx('title')}>지금은 Unity 입니다.</h2>}
+        {gameStart && (
+          <p className={cx('subTitle')}>
+            빨간색 : HP
+            <br />
+            초록색 : 파워
+            <br />
+            노란색 : 스테미너
+          </p>
+        )}
         <Unity
           unityProvider={unityProvider}
           style={{
@@ -87,39 +108,6 @@ export function App() {
           }}
         />
       </div>
-      {/* 게임 시작 버튼 */}
-      {/* <div className='gameStart'>
-        <button type="button">게임시작</button>
-      </div> */}
-      {/* 팀 캐릭터 선택 */}
-      {/* <div className="team">
-        <button
-          onClick={() => {
-            setCurrentTeam('A');
-          }}
-        >
-          A팀
-        </button>
-        <br />
-        <button
-          onClick={() => {
-            setCurrentTeam('B');
-          }}
-        >
-          B팀
-        </button>
-        <br />
-        {characterA}
-        <br />
-        {characterB}
-      </div>
-
-      {currentTeam == 'A' && (
-        <CharacterChoice team="A" characterSelecter={characterSelecter} />
-      )}
-      {currentTeam == 'B' && (
-        <CharacterChoice team="B" characterSelecter={characterSelecter} />
-      )} */}
     </div>
   );
 }
