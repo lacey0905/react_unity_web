@@ -1,0 +1,83 @@
+variables:
+  S3_PATH: "" # DO NOT START '/'  WRONG - '/path', OK - 'path'
+  S3_CACHE_OPTION: --recursive --exclude "*" --include "*.jpg" --include "*.gif" --include "*.png" --cache-control max-age=5184000
+  # QA VARIABLE
+  QA_S3_BUCKET: cow-dq-portal
+  QA_CLOUDFRONT_ID: E38KTFVYSBAFAI
+  QA_HOST: crypto.dq.cow.pmang.cloud
+  # PROD VARIABLE
+  PROD_S3_BUCKET: cow-portal
+  PROD_CLOUDFRONT_ID: E343HHNXXQ9SX9
+  PROD_HOST: crypto.cow.pmang.cloud
+
+default:
+  image: git-registry.nwz.kr/nps-web/docker-nodejs16-builder
+  tags:
+    - npsdev-cloud-docker
+
+stages:
+  - build
+  - deploy
+
+cache:
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    - .npm/
+    - node_modules/
+
+before_script:
+  - npm ci --cache .npm --prefer-offline
+
+
+stages:
+  - build
+  - deploy
+
+build:qa:
+  stage: build
+  script:
+    - echo "Start building App"
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+  only:
+    - release/qa
+
+deploy:qa:
+  stage: deploy
+  variables:
+    AWS_PROFILE: $QA_S3_BUCKET # 버킷명과 프로파일 명은 통일 한다.
+  script:
+    - ls -al
+    - aws s3 cp ./dist/ s3://$QA_S3_BUCKET/$S3_PATH --recursive
+    - eval aws s3 cp s3://$QA_S3_BUCKET/$S3_PATH s3://$QA_S3_BUCKET/$S3_PATH "$S3_CACHE_OPTION"
+    - aws cloudfront create-invalidation --distribution-id $QA_CLOUDFRONT_ID --paths "/$S3_PATH*"
+  only:
+    - release/qa
+
+build:prod:
+  stage: build
+
+  script:
+    - echo "Start building App"
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+  only:
+    - release/prod
+
+deploy:prod:
+  stage: deploy
+  variables:
+    AWS_PROFILE: $PROD_S3_BUCKET # 버킷명과 프로파일 명은 통일 한다.
+  script:
+    - ls -al
+    - aws s3 cp ./dist/ s3://$PROD_S3_BUCKET/$S3_PATH --recursive
+    - eval aws s3 cp s3://$PROD_S3_BUCKET/$S3_PATH s3://$PROD_S3_BUCKET/$S3_PATH "$S3_CACHE_OPTION"
+    - aws cloudfront create-invalidation --distribution-id $PROD_CLOUDFRONT_ID --paths "/$S3_PATH*"
+  only:
+    - release/prod
+  when: manual
